@@ -76,19 +76,16 @@ def trace_ray(rayO, rayD):
     # Find properties of the object.
     N = get_normal(obj, M)
     color = get_color(obj, M)
-    toL = normalize(L - M)
     toO = normalize(O - M)
-    # Shadow: find if the point is shadowed or not.
-    l = [intersect(M + N * .0001, toL, obj_sh) 
-            for k, obj_sh in enumerate(scene) if k != obj_idx]
-    if l and min(l) < np.inf:
-        return
-    # Start computing the color.
+
     col_ray = ambient
-    # Lambert shading (diffuse).
-    col_ray += obj.get('diffuse_c', diffuse_c) * max(np.dot(N, toL), 0) * color
-    # Blinn-Phong shading (specular).
-    col_ray += obj.get('specular_c', specular_c) * max(np.dot(N, normalize(toL + toO)), 0) ** specular_k * color_light
+    for light in lights:
+        toL = normalize(light['position'] - M)
+        l = [intersect(M + N * 0.0001, toL, obj_sh) for k, obj_sh in enumerate(scene) if k != obj_idx]
+        if l and min(l) < np.inf:
+            return
+        col_ray += obj.get('diffuse_c', diffuse_c) * max(np.dot(N, toL), 0) * color
+        col_ray += obj.get('specular_c', specular_c) * max(np.dot(N, normalize(toL + toO)), 0) ** specular_k * color_light
     return obj, M, N, col_ray
 
 def add_sphere(position, radius, color):
@@ -112,7 +109,10 @@ scene = [add_sphere([.75, .1, 1.], .6, [0., 0., 1.]),
     ]
 
 # Light position and color.
-L = np.array([5., 5., -10.])
+lights = [
+    {'position': np.array([-2.0, 2.0, 0.0]), 'color': np.array([0.5, 0.5, 0.5])},
+    {'position': np.array([1.0, 4.0, 1.0]), 'color': np.array([0.8, 0.8, 0.8])}
+]
 color_light = np.ones(3)
 
 # Default light and material parameters.
@@ -134,7 +134,7 @@ S = (-1., -1. / r + .25, 1., 1. / r + .25)
 # Loop through all pixels.
 for i, x in enumerate(np.linspace(S[0], S[2], w)):
     if i % 10 == 0:
-        print i / float(w) * 100, "%"
+        print(i / float(w) * 100, "%")
     for j, y in enumerate(np.linspace(S[1], S[3], h)):
         col[:] = 0
         Q[:2] = (x, y)
@@ -155,4 +155,4 @@ for i, x in enumerate(np.linspace(S[0], S[2], w)):
             reflection *= obj.get('reflection', 1.)
         img[h - j - 1, i, :] = np.clip(col, 0, 1)
 
-plt.imsave('fig.png', img)
+plt.imsave('outputs/pt1.png', img)
