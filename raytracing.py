@@ -85,7 +85,7 @@ def trace_ray(rayO, rayD):
         if l and min(l) < np.inf:
             return
         col_ray += obj.get('diffuse_c', diffuse_c) * max(np.dot(N, toL), 0) * color
-        col_ray += obj.get('specular_c', specular_c) * max(np.dot(N, normalize(toL + toO)), 0) ** specular_k * color_light
+        col_ray += obj.get('specular_c', specular_c) * max(np.dot(N, normalize(toL + toO)), 0) ** specular_k * light['color']
     return obj, M, N, col_ray
 
 def add_sphere(position, radius, color):
@@ -113,7 +113,6 @@ lights = [
     {'position': np.array([-2.0, 2.0, 0.0]), 'color': np.array([0.5, 0.5, 0.5])},
     {'position': np.array([1.0, 4.0, 1.0]), 'color': np.array([0.8, 0.8, 0.8])}
 ]
-color_light = np.ones(3)
 
 # Default light and material parameters.
 ambient = .05
