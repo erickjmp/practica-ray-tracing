@@ -39,11 +39,39 @@ def intersect_sphere(O, D, S, R):
             return t1 if t0 < 0 else t0
     return np.inf
 
+def intersect_triangle(O, D, V0, V1, V2):
+    # Calcula la normal del triangulo
+    E1 = V1 - V0
+    E2 = V2 - V0
+    N = np.cross(E1, E2)
+    
+    # Calcula la interseccion del rayo con el plano que contiene al triangulo
+    t = intersect_plane(O, D, V0, N)
+    
+    # Verifica si la interseccion se encuentra dentro del triangulo
+    if t != np.inf:
+        P = O + t * D
+        edge1 = V1 - V0
+        edge2 = V2 - V1
+        edge3 = V0 - V2
+        
+        # Comprueba si el punto de interseccion esta dentro del triangulo
+        cp1 = np.cross(edge1, P - V0)
+        cp2 = np.cross(edge2, P - V1)
+        cp3 = np.cross(edge3, P - V2)
+        
+        if np.dot(cp1, N) >= 0 and np.dot(cp2, N) >= 0 and np.dot(cp3, N) >= 0:
+            return t
+    
+    return np.inf
+
 def intersect(O, D, obj):
     if obj['type'] == 'plane':
         return intersect_plane(O, D, obj['position'], obj['normal'])
     elif obj['type'] == 'sphere':
         return intersect_sphere(O, D, obj['position'], obj['radius'])
+    elif obj['type'] == 'triangle':
+        return intersect_triangle(O, D, obj['v0'], obj['v1'], obj['v2'])
 
 def get_normal(obj, M):
     # Find normal.
@@ -51,9 +79,15 @@ def get_normal(obj, M):
         N = normalize(M - obj['position'])
     elif obj['type'] == 'plane':
         N = obj['normal']
+    elif obj['type'] == 'triangle':
+        E1 = obj['v1'] - obj['v0']
+        E2 = obj['v2'] - obj['v0']
+        N = normalize(np.cross(E1, E2))
     return N
     
 def get_color(obj, M):
+    if obj['type'] == 'triangle':
+        return obj['color']
     color = obj['color']
     if not hasattr(color, '__len__'):
         color = color(M)
@@ -84,13 +118,13 @@ def trace_ray(rayO, rayD):
         l = [intersect(M + N * 0.0001, toL, obj_sh) for k, obj_sh in enumerate(scene) if k != obj_idx]
         if l and min(l) < np.inf:
             return
-        col_ray += obj.get('diffuse_c', diffuse_c) * max(np.dot(N, toL), 0) * color
-        col_ray += obj.get('specular_c', specular_c) * max(np.dot(N, normalize(toL + toO)), 0) ** specular_k * light['color']
+        col_ray += obj.get('diffuse_c') * max(np.dot(N, toL), 0) * color
+        col_ray += obj.get('specular_c') * max(np.dot(N, normalize(toL + toO)), 0) ** specular_k * light['color']
     return obj, M, N, col_ray
 
 def add_sphere(position, radius, color):
     return dict(type='sphere', position=np.array(position), 
-        radius=np.array(radius), color=np.array(color), reflection=.5)
+        radius=np.array(radius), color=np.array(color), reflection=.5, diffuse_c=.75, specular_c=.5)
     
 def add_plane(position, normal):
     return dict(type='plane', position=np.array(position), 
@@ -99,13 +133,18 @@ def add_plane(position, normal):
             if (int(M[0] * 2) % 2) == (int(M[2] * 2) % 2) else color_plane1),
         diffuse_c=.75, specular_c=.5, reflection=.25)
     
+def add_triangle(v0, v1, v2, color):
+    return dict(type='triangle', v0=np.array(v0), v1=np.array(v1), v2=np.array(v2),
+                color=np.array(color), reflection=0.25, diffuse_c=.75, specular_c=.5)
+
 # List of objects.
 color_plane0 = 1. * np.ones(3)
 color_plane1 = 0. * np.ones(3)
 scene = [add_sphere([.75, .1, 1.], .6, [0., 0., 1.]),
          add_sphere([-.75, .1, 2.25], .6, [.5, .223, .5]),
          add_sphere([-2.75, .1, 3.5], .6, [1., .572, .184]),
-         add_plane([0., -.5, 0.], [0., 1., 0.]),
+         add_plane([0., -.5, 0.], [0., 1., 0.],),
+         add_triangle([0, 0, 0], [.5, -.5, 1.5], [0., .5, 1.5], [1.0, 0.0, 0.0])
     ]
 
 # Light position and color.
@@ -116,8 +155,6 @@ lights = [
 
 # Default light and material parameters.
 ambient = .05
-diffuse_c = 1.
-specular_c = 1.
 specular_k = 50
 
 depth_max = 5  # Maximum number of light reflections.
@@ -154,4 +191,4 @@ for i, x in enumerate(np.linspace(S[0], S[2], w)):
             reflection *= obj.get('reflection', 1.)
         img[h - j - 1, i, :] = np.clip(col, 0, 1)
 
-plt.imsave('outputs/pt1.png', img)
+plt.imsave('outputs/pt2.png', img)
